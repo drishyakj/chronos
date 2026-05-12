@@ -1,22 +1,19 @@
+````md
 # Chronos
 
-Chronos is a Distributed Job Scheduling System built using FastAPI, MySQL, SQLAlchemy, and APScheduler.
+Chronos is a Distributed Job Scheduling System built using FastAPI, MySQL, SQLAlchemy, APScheduler, and Docker.
 
-The system allows users to:
-- schedule one-time jobs
-- schedule recurring jobs
-- manage jobs
-- monitor executions
-- retry failed jobs
-- execute different job types using a generic handler architecture
-
-The project is designed to demonstrate scalable backend system design concepts such as:
-- distributed scheduling
-- modular job execution
+The system supports:
+- one-time scheduled jobs
+- recurring cron jobs
+- job management
 - retry handling
-- monitoring
-- extensibility
-- REST API architecture
+- monitoring and logging
+- JWT authentication
+- Dockerized deployment
+
+The initial implemented job type is:
+- TELEGRAM_MESSAGE
 
 ---
 
@@ -24,7 +21,7 @@ The project is designed to demonstrate scalable backend system design concepts s
 
 ## Job Submission
 - Immediate jobs
-- Future scheduled jobs
+- Scheduled jobs
 - Generic job types
 
 ## Recurring Jobs
@@ -38,18 +35,23 @@ The project is designed to demonstrate scalable backend system design concepts s
 - Reschedule jobs
 
 ## Failure Handling
-- Automatic retry mechanism
-- Failure logging
+- Automatic retries
 - Retry tracking
+- Failure logging
 
 ## Logging & Monitoring
 - Execution logs
-- Health monitoring APIs
-- Statistics APIs
+- Health check API
+- Statistics API
 
 ## Authentication
 - JWT Authentication
 - Protected APIs
+
+## Dockerized Deployment
+- FastAPI container
+- MySQL container
+- Persistent database volume
 
 ---
 
@@ -62,7 +64,7 @@ The project is designed to demonstrate scalable backend system design concepts s
 | ORM | SQLAlchemy |
 | Scheduler | APScheduler |
 | Authentication | JWT |
-| Job Execution | Async Python |
+| Containerization | Docker |
 | External Integration | Telegram Bot API |
 
 ---
@@ -70,8 +72,6 @@ The project is designed to demonstrate scalable backend system design concepts s
 # System Architecture
 
 Chronos uses a modular handler-based architecture.
-
-The scheduler itself is generic and does not contain business logic for individual job types.
 
 Each job type has its own handler.
 
@@ -83,23 +83,13 @@ JOB_HANDLERS = {
 }
 ```
 
-This allows future job types to be added without changing scheduler logic.
+This allows future job types to be added without modifying scheduler logic.
 
-Future job types can include:
+Possible future job types:
 - EMAIL_NOTIFICATION
 - FILE_BACKUP
 - WEBHOOK_CALL
 - REPORT_GENERATION
-- DATABASE_CLEANUP
-
----
-
-# Initial Job Type
-
-Implemented:
-- TELEGRAM_MESSAGE
-
-The Telegram handler sends scheduled Telegram messages using Telegram Bot API.
 
 ---
 
@@ -123,20 +113,17 @@ app/
 # Database Tables
 
 ## users
-
 Stores registered users.
 
 ## jobs
-
 Stores scheduled jobs and metadata.
 
 ## job_execution_logs
-
-Stores execution history and failures.
+Stores execution history and failure logs.
 
 ---
 
-# Setup Instructions
+# Local Setup
 
 ## 1. Clone Repository
 
@@ -204,8 +191,6 @@ SECRET_KEY=supersecretkey
 
 ALGORITHM=HS256
 
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
 TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN
 ```
 
@@ -213,7 +198,7 @@ TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN
 
 # Telegram Bot Setup
 
-## Create Telegram Bot
+## Create Bot
 
 Open Telegram and search:
 
@@ -227,13 +212,13 @@ Create bot:
 /newbot
 ```
 
-Copy generated bot token into `.env`
+Copy generated token into `.env`
 
 ---
 
 ## Get Chat ID
 
-Message your bot once.
+Message the bot once.
 
 Open:
 
@@ -263,12 +248,168 @@ uvicorn app.main:app --reload
 
 ---
 
-# Swagger API Docs
-
-Open:
+# Swagger Documentation
 
 ```text
 http://127.0.0.1:8000/docs
+```
+
+---
+
+# Docker Setup
+
+## Prerequisites
+
+Install:
+- Docker
+- Docker Compose
+
+Verify:
+
+```bash
+docker --version
+docker compose version
+```
+
+---
+
+# Docker Files
+
+## Dockerfile
+
+```dockerfile
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+---
+
+## docker-compose.yml
+
+```yaml
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: chronos-mysql
+
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: chronos
+      MYSQL_USER: chronos
+      MYSQL_PASSWORD: chronos123
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  chronos:
+    build: .
+
+    container_name: chronos-app
+
+    depends_on:
+      - mysql
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      DATABASE_URL: mysql+pymysql://chronos:chronos123@mysql/chronos
+      SECRET_KEY: supersecretkey
+      ALGORITHM: HS256
+      TELEGRAM_BOT_TOKEN: YOUR_BOT_TOKEN
+
+    volumes:
+      - .:/app
+
+    command: >
+      sh -c "
+      sleep 10 &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+volumes:
+  mysql_data:
+```
+
+---
+
+# Run Using Docker
+
+## Build
+
+```bash
+docker compose build --no-cache
+```
+
+---
+
+## Start Containers
+
+```bash
+docker compose up
+```
+
+---
+
+## Run In Background
+
+```bash
+docker compose up -d
+```
+
+---
+
+## Stop Containers
+
+```bash
+docker compose down
+```
+
+---
+
+# Docker Access
+
+## FastAPI
+
+```text
+http://127.0.0.1:8000
+```
+
+## Swagger Docs
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
+
+# View Logs
+
+## App Logs
+
+```bash
+docker logs chronos-app
+```
+
+## MySQL Logs
+
+```bash
+docker logs chronos-mysql
 ```
 
 ---
@@ -419,9 +560,9 @@ GET `/jobs/stats/summary`
 
 # Retry Mechanism
 
-If a job execution fails:
+If execution fails:
 1. retry_count increments
-2. job status becomes RETRYING
+2. status becomes RETRYING
 3. retries continue until max_retries reached
 4. final status becomes FAILED
 
@@ -431,6 +572,8 @@ All failures are stored in:
 ---
 
 # Job Lifecycle
+
+Success Flow:
 
 ```text
 PENDING
@@ -442,7 +585,7 @@ RUNNING
 SUCCESS
 ```
 
-Failure flow:
+Failure Flow:
 
 ```text
 RUNNING
@@ -458,22 +601,21 @@ FAILED
 
 # Scalability Considerations
 
-The project is designed with scalability in mind.
+The system is designed with scalability in mind.
 
-Key scalability concepts:
-- Generic job handler architecture
-- Modular scheduler design
-- Decoupled execution engine
-- Extensible payload-based jobs
-- Background scheduling system
+Current design advantages:
+- Generic job handlers
+- Modular architecture
+- Decoupled scheduler
+- Persistent storage
+- Background execution
 
-Future scalability improvements:
+Future improvements:
 - Redis queues
 - Multiple workers
-- Docker deployment
-- Kubernetes
-- Distributed worker nodes
+- Kubernetes deployment
 - Horizontal scaling
+- Distributed schedulers
 
 ---
 
@@ -483,18 +625,17 @@ Future scalability improvements:
 - lightweight
 - async support
 - automatic Swagger docs
-- easy REST API development
 
 ## Why APScheduler
 - simple recurring scheduling
 - cron support
-- lightweight local scheduler
+- lightweight scheduler
 
 ## Why Generic Handlers
-Allows adding new job types without modifying scheduler core logic.
+Allows new job types to be added independently.
 
-## Why MySQL
-Reliable relational database with persistent storage.
+## Why Docker
+Provides isolated and reproducible deployment environments.
 
 ---
 
@@ -506,27 +647,12 @@ Reliable relational database with persistent storage.
 | One-time Jobs | ✅ |
 | Recurring Jobs | ✅ |
 | Job Management | ✅ |
-| Failure Handling | ✅ |
 | Retry Mechanism | ✅ |
 | Logging & Monitoring | ✅ |
 | Authentication | ✅ |
-| Scalable Design | ✅ |
+| Dockerized Deployment | ✅ |
+| Scalable Architecture | ✅ |
 | Generic Job Types | ✅ |
-
----
-
-# Future Improvements
-
-- Email Jobs
-- File Processing Jobs
-- Webhook Jobs
-- Distributed Workers
-- Docker Deployment
-- Kubernetes
-- Admin Dashboard
-- Rate Limiting
-- Queue-based execution
-- Web UI
 
 ---
 
@@ -534,15 +660,27 @@ Reliable relational database with persistent storage.
 
 1. Register user
 2. Login user
-3. Create scheduled Telegram job
+3. Create Telegram scheduled job
 4. Receive Telegram message
-5. Show execution logs
+5. Show logs API
 6. Create recurring cron job
 7. Cancel recurring job
 8. Show monitoring APIs
 
 ---
 
+# Future Improvements
+
+- Email jobs
+- Webhook jobs
+- Distributed workers
+- Queue-based execution
+- Dashboard UI
+- Kubernetes deployment
+
+---
+
 # Author
 
 Chronos — Distributed Job Scheduling System
+````
