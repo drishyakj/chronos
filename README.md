@@ -1,4 +1,4 @@
-````md
+
 # Chronos
 
 Chronos is a Distributed Job Scheduling System built using FastAPI, MySQL, SQLAlchemy, APScheduler, and Docker.
@@ -683,4 +683,3 @@ Provides isolated and reproducible deployment environments.
 # Author
 
 Chronos — Distributed Job Scheduling System
-````
